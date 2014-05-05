@@ -5,9 +5,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.supaham</groupId>
-    <artifactId>supachatapi</artifactId>
+    <artifactId>supachat-api</artifactId>
     <version>1.0-SNAPSHOT</version>
-    <name>SupaChat API</name>
+    <name>SupaChat-API</name>
     <description>An API for the Minecraft JSON chat implementation.</description>
 
     <properties>
