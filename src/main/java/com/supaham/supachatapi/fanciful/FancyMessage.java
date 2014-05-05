@@ -5,7 +5,6 @@ import org.bukkit.Achievement;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.Statistic;
-import org.bukkit.Statistic.Type;
 import org.bukkit.craftbukkit.libs.com.google.gson.stream.JsonWriter;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
@@ -13,7 +12,6 @@ import org.bukkit.inventory.ItemStack;
 
 import java.io.StringWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -27,16 +25,9 @@ public class FancyMessage {
     private final List<MessagePart> messageParts;
     private String jsonString;
     private boolean dirty;
-
-    private Class<?> nmsChatSerializer = ReflectionUtil.getNMSClass("ChatSerializer");
-    private Class<?> nmsTagCompound = ReflectionUtil.getNMSClass("NBTTagCompound");
-    private Class<?> nmsPacketPlayOutChat = ReflectionUtil.getNMSClass("PacketPlayOutChat");
-    private Class<?> nmsAchievement = ReflectionUtil.getNMSClass("Achievement");
-    private Class<?> nmsStatistic = ReflectionUtil.getNMSClass("Statistic");
-    private Class<?> nmsItemStack = ReflectionUtil.getNMSClass("ItemStack");
-
-    private Class<?> obcStatistic = ReflectionUtil.getOBCClass("CraftStatistic");
-    private Class<?> obcItemStack = ReflectionUtil.getOBCClass("inventory.CraftItemStack");
+    
+    protected static Class<?> nmsChatSerializer = ReflectionUtil.getNMSClass("ChatSerializer");
+    protected static Class<?> nmsPacketPlayOutChat = ReflectionUtil.getNMSClass("PacketPlayOutChat");
 
     public FancyMessage(final String firstPartText) {
         messageParts = new ArrayList<MessagePart>();
@@ -61,11 +52,10 @@ public class FancyMessage {
      * @see #append(String)
      */
     public FancyMessage text(String text) throws IllegalStateException {
-        MessagePart latest = latest();
-        if (latest.hasText()) {
+        if (hasText()) {
             throw new IllegalStateException("text for this message part is already set");
         }
-        latest.text = text;
+        latest().text(text);
         dirty = true;
         return this;
     }
@@ -96,10 +86,7 @@ public class FancyMessage {
      * @throws IllegalArgumentException thrown if {@code color} is not a color
      */
     public FancyMessage color(final ChatColor color) throws IllegalArgumentException {
-        if (!color.isColor()) {
-            throw new IllegalArgumentException(color.name() + " is not a color");
-        }
-        latest().color = color;
+        latest().color(color);
         dirty = true;
         return this;
     }
@@ -112,12 +99,7 @@ public class FancyMessage {
      * @throws IllegalArgumentException thrown if {@code styles} contains a color
      */
     public FancyMessage style(ChatColor... styles) throws IllegalArgumentException {
-        for (final ChatColor style : styles) {
-            if (!style.isFormat()) {
-                throw new IllegalArgumentException(style.name() + " is not a style");
-            }
-        }
-        latest().styles.addAll(Arrays.asList(styles));
+        latest().style(styles);
         dirty = true;
         return this;
     }
@@ -129,7 +111,8 @@ public class FancyMessage {
      * @return this instance of FancyMessage, for chaining.
      */
     public FancyMessage file(final String path) {
-        onClick("open_file", path);
+        latest().file(path);
+        dirty = true;
         return this;
     }
 
@@ -140,7 +123,8 @@ public class FancyMessage {
      * @return this instance of FancyMessage, for chaining.
      */
     public FancyMessage link(final String url) {
-        onClick("open_url", url);
+        latest().link(url);
+        dirty = true;
         return this;
     }
 
@@ -151,7 +135,8 @@ public class FancyMessage {
      * @return this instance of FancyMessage, for chaining.
      */
     public FancyMessage suggest(final String command) {
-        onClick("suggest_command", command);
+        latest().suggest(command);
+        dirty = true;
         return this;
     }
 
@@ -163,7 +148,8 @@ public class FancyMessage {
      * @return this instance of FancyMessage, for chaining.
      */
     public FancyMessage command(final String command) {
-        onClick("run_command", command);
+        latest().command(command);
+        dirty = true;
         return this;
     }
 
@@ -174,7 +160,8 @@ public class FancyMessage {
      * @return this instance of FancyMessage, for chaining.
      */
     public FancyMessage achievementTooltip(final String name) {
-        onHover("show_achievement", "achievement." + name);
+        latest().achievementTooltip("achievement." + name);
+        dirty = true;
         return this;
     }
 
@@ -185,13 +172,9 @@ public class FancyMessage {
      * @return this instance of FancyMessage, for chaining.
      */
     public FancyMessage achievementTooltip(final Achievement which) {
-        try {
-            Object achievement = ReflectionUtil.getMethod(obcStatistic, "getNMSAchievement").invoke(null, which);
-            return achievementTooltip((String) ReflectionUtil.getField(nmsAchievement, "name").get(achievement));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return this;
-        }
+        latest().achievementTooltip(which);
+        dirty = true;
+        return this;
     }
 
     /**
@@ -201,17 +184,9 @@ public class FancyMessage {
      * @return this instance of FancyMessage, for chaining.
      */
     public FancyMessage statisticTooltip(final Statistic which) {
-        Type type = which.getType();
-        if (type != Type.UNTYPED) {
-            throw new IllegalArgumentException("That statistic requires an additional " + type + " parameter!");
-        }
-        try {
-            Object statistic = ReflectionUtil.getMethod(obcStatistic, "getNMSStatistic").invoke(null, which);
-            return achievementTooltip((String) ReflectionUtil.getField(nmsStatistic, "name").get(statistic));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return this;
-        }
+        latest().statisticTooltip(which);
+        dirty = true;
+        return this;
     }
 
     /**
@@ -222,21 +197,9 @@ public class FancyMessage {
      * @return this instance of FancyMessage, for chaining.
      */
     public FancyMessage statisticTooltip(final Statistic statistic, Material material) {
-        Type type = statistic.getType();
-        if (type == Type.UNTYPED) {
-            throw new IllegalArgumentException("That statistic needs no additional parameter!");
-        }
-        if ((type == Type.BLOCK && material.isBlock()) || type == Type.ENTITY) {
-            throw new IllegalArgumentException("Wrong parameter type for that statistic - needs " + type + "!");
-        }
-        try {
-            Object obcStatistic = ReflectionUtil.getMethod(this.obcStatistic, "getMaterialStatistic")
-                    .invoke(null, statistic, material);
-            return achievementTooltip((String) ReflectionUtil.getField(nmsStatistic, "name").get(obcStatistic));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return this;
-        }
+        latest().statisticTooltip(statistic, material);
+        dirty = true;
+        return this;
     }
 
     /**
@@ -247,21 +210,9 @@ public class FancyMessage {
      * @return this instance of FancyMessage, for chaining.
      */
     public FancyMessage statisticTooltip(final Statistic statistic, EntityType entity) {
-        Type type = statistic.getType();
-        if (type == Type.UNTYPED) {
-            throw new IllegalArgumentException("That statistic needs no additional parameter!");
-        }
-        if (type != Type.ENTITY) {
-            throw new IllegalArgumentException("Wrong parameter type for that statistic - needs " + type + "!");
-        }
-        try {
-            Object obcStatistic = ReflectionUtil.getMethod(this.obcStatistic, "getEntityStatistic")
-                    .invoke(null, statistic, entity);
-            return achievementTooltip((String) ReflectionUtil.getField(nmsStatistic, "name").get(obcStatistic));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return this;
-        }
+        latest().statisticTooltip(statistic, entity);
+        dirty = true;
+        return this;
     }
 
     /**
@@ -271,7 +222,8 @@ public class FancyMessage {
      * @return this instance of FancyMessage, for chaining.
      */
     public FancyMessage itemTooltip(final String itemJSON) {
-        onHover("show_item", itemJSON);
+        latest().itemTooltip(itemJSON);
+        dirty = true;
         return this;
     }
 
@@ -282,17 +234,9 @@ public class FancyMessage {
      * @return this instance of FancyMessage, for chaining.
      */
     public FancyMessage itemTooltip(final ItemStack itemStack) {
-        try {
-            Object nmsItem =
-                    ReflectionUtil.getMethod(obcItemStack, "asNMSCopy", ItemStack.class).invoke(null, itemStack);
-            return itemTooltip(
-                    ReflectionUtil.getMethod(nmsItemStack, "save").invoke(nmsItem, nmsTagCompound.newInstance())
-                            .toString()
-            );
-        } catch (Exception e) {
-            e.printStackTrace();
-            return this;
-        }
+        latest().itemTooltip(itemStack);
+        dirty = true;
+        return this;
     }
 
     /**
@@ -302,7 +246,9 @@ public class FancyMessage {
      * @return this instance of FancyMessage, for chaining.
      */
     public FancyMessage tooltip(final String text) {
-        return tooltip(text.split("\\n"));
+        latest().tooltip(text);
+        dirty = true;
+        return this;
     }
 
     /**
@@ -312,7 +258,9 @@ public class FancyMessage {
      * @return this instance of FancyMessage, for chaining.
      */
     public FancyMessage tooltip(final List<String> lines) {
-        return tooltip((String[]) lines.toArray());
+        latest().tooltip(lines);
+        dirty = true;
+        return this;
     }
 
     /**
@@ -322,11 +270,8 @@ public class FancyMessage {
      * @return this instance of FancyMessage, for chaining.
      */
     public FancyMessage tooltip(final String... lines) {
-        if (lines.length == 1) {
-            onHover("show_text", lines[0]);
-        } else {
-            itemTooltip(makeMultilineTooltip(lines));
-        }
+        latest().tooltip(lines);
+        dirty = true;
         return this;
     }
 
@@ -367,9 +312,7 @@ public class FancyMessage {
      * @param data data to pass to the event
      */
     public void onClick(final String name, final String data) {
-        final MessagePart latest = latest();
-        latest.clickActionName = name;
-        latest.clickActionData = data;
+        latest().onClick(name, data);
         dirty = true;
     }
 
@@ -380,9 +323,7 @@ public class FancyMessage {
      * @param data data to pass to the event
      */
     public void onHover(final String name, final String data) {
-        final MessagePart latest = latest();
-        latest.hoverActionName = name;
-        latest.hoverActionData = data;
+        latest().onHover(name, data);
         dirty = true;
     }
 
@@ -418,7 +359,7 @@ public class FancyMessage {
                 json.close();
             }
         } catch (Exception e) {
-            throw new RuntimeException("invalid message");
+            throw new RuntimeException("invalid message", e);
         }
         jsonString = string.toString();
         dirty = false;
@@ -458,25 +399,5 @@ public class FancyMessage {
 
     private MessagePart latest() {
         return messageParts.get(messageParts.size() - 1);
-    }
-
-    private String makeMultilineTooltip(final String[] lines) {
-        StringWriter string = new StringWriter();
-        JsonWriter json = new JsonWriter(string);
-        try {
-            json.beginObject().name("id").value(1);
-            json.name("tag").beginObject().name("display").beginObject();
-            json.name("Name").value("\\u00A7f" + lines[0].replace("\"", "\\\""));
-            json.name("Lore").beginArray();
-            for (int i = 1; i < lines.length; i++) {
-                final String line = lines[i];
-                json.value(line.isEmpty() ? " " : line.replace("\"", "\\\""));
-            }
-            json.endArray().endObject().endObject().endObject();
-            json.close();
-        } catch (Exception e) {
-            throw new RuntimeException("invalid tooltip");
-        }
-        return string.toString();
     }
 }

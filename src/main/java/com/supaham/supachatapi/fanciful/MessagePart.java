@@ -1,27 +1,41 @@
 package com.supaham.supachatapi.fanciful;
 
+import com.supaham.supachatapi.util.ReflectionUtil;
+import net.minecraft.util.org.apache.commons.lang3.Validate;
+import org.bukkit.Achievement;
 import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.Statistic;
 import org.bukkit.craftbukkit.libs.com.google.gson.stream.JsonWriter;
+import org.bukkit.entity.EntityType;
+import org.bukkit.inventory.ItemStack;
 
+import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
-final class MessagePart implements Cloneable {
+public class MessagePart implements Cloneable {
 
-    ChatColor color = ChatColor.WHITE;
+    ChatColor color = null;
     ArrayList<ChatColor> styles = new ArrayList<ChatColor>();
-    String clickActionName = null, clickActionData = null,
-            hoverActionName = null, hoverActionData = null;
+    String clickEvent = null, clickEventData = null,
+            hoverEvent = null, hoverEventData = null;
     String text = "";
 
-    MessagePart(final String text) {
+    protected static Class<?> nmsTagCompound = ReflectionUtil.getNMSClass("NBTTagCompound");
+    protected static Class<?> nmsAchievement = ReflectionUtil.getNMSClass("Achievement");
+    protected static Class<?> nmsStatistic = ReflectionUtil.getNMSClass("Statistic");
+    protected static Class<?> nmsItemStack = ReflectionUtil.getNMSClass("ItemStack");
+
+    protected static Class<?> obcStatistic = ReflectionUtil.getOBCClass("CraftStatistic");
+    protected static Class<?> obcItemStack = ReflectionUtil.getOBCClass("inventory.CraftItemStack");
+
+    public MessagePart() {
+    }
+
+    public MessagePart(final String text) {
         this.text = text;
-    }
-
-    MessagePart() {
-    }
-
-    boolean hasText() {
-        return !text.isEmpty();
     }
 
     @Override
@@ -31,21 +45,305 @@ final class MessagePart implements Cloneable {
             MessagePart part = new MessagePart();
             part.color = this.color;
             part.styles = this.styles;
-            part.clickActionName = this.clickActionName;
-            part.clickActionData = this.clickActionData;
-            part.hoverActionName = this.hoverActionName;
-            part.hoverActionData = this.hoverActionData;
+            part.clickEvent = this.clickEvent;
+            part.clickEventData = this.clickEventData;
+            part.hoverEvent = this.hoverEvent;
+            part.hoverEventData = this.hoverEventData;
             part.text = this.text;
             return part;
-        } catch (CloneNotSupportedException ignored) {
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
             return null;
         }
+    }
+
+    /**
+     * Sets the text of this {@link MessagePart}.
+     *
+     * @param text text to set
+     * @return the previous text, nullable
+     */
+    public String text(String text) {
+        String prev = this.text;
+        this.text = text;
+        return prev;
+    }
+
+    /**
+     * Sets the {@link ChatColor} of this MessagePart.
+     *
+     * @param color color to set
+     * @return the previous color, nullable
+     * @throws IllegalArgumentException thrown if {@code color} is not a color
+     */
+    public ChatColor color(final ChatColor color) throws IllegalArgumentException {
+        if (!color.isColor()) {
+            throw new IllegalArgumentException(color.name() + " is not a color");
+        }
+
+        ChatColor prev = this.color;
+        this.color = color;
+        return prev;
+    }
+
+    /**
+     * Applies {@link ChatColor} styles to this MessagePart.
+     *
+     * @param styles array of styles to apply
+     * @return the previous styles
+     * @throws IllegalArgumentException thrown if {@code styles} contains a color
+     */
+    public List<ChatColor> style(ChatColor... styles) throws IllegalArgumentException {
+        for (final ChatColor style : styles) {
+            if (!style.isFormat()) {
+                throw new IllegalArgumentException(style.name() + " is not a style");
+            }
+        }
+        List<ChatColor> prev = new ArrayList<ChatColor>(this.styles);
+        this.styles.addAll(Arrays.asList(styles));
+        return prev;
+    }
+
+    /**
+     * Opens a file (client-side) on click event.
+     *
+     * @param path the path of the file to open
+     */
+    public void file(final String path) {
+        onClick("open_file", path);
+    }
+
+    /**
+     * Opens a URL on click event.
+     *
+     * @param url url to open
+     */
+    public void link(final String url) {
+        onClick("open_url", url);
+    }
+
+    /**
+     * Suggests a command on click event. This opens the player's chat box and inserts the given String.
+     *
+     * @param command command to suggest
+     */
+    public void suggest(final String command) {
+        onClick("suggest_command", command);
+    }
+
+    /**
+     * Executes a command on click event. It should be noted that the commands executed are run by the player,
+     * thus appearing in their recent chat history.
+     *
+     * @param command command to execute
+     */
+    public void command(final String command) {
+        onClick("run_command", command);
+    }
+
+    /**
+     * Displays an achievement on hover event.
+     *
+     * @param name name of the achievement to display
+     */
+    public void achievementTooltip(final String name) {
+        onHover("show_achievement", "achievement." + name);
+    }
+
+    /**
+     * Displays an {@link Achievement} on hover event.
+     *
+     * @param which achievement to display
+     */
+    public void achievementTooltip(final Achievement which) {
+        try {
+            Object achievement = ReflectionUtil.getMethod(obcStatistic,
+                                                          "getNMSAchievement").invoke(null, which);
+            achievementTooltip((String) ReflectionUtil.getField(nmsAchievement, "name").get(achievement));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Displays a statistic on hover event.
+     *
+     * @param which statistic to display
+     */
+    public void statisticTooltip(final Statistic which) {
+        Statistic.Type type = which.getType();
+        if (type != Statistic.Type.UNTYPED) {
+            throw new IllegalArgumentException("That statistic requires an additional " + type + " parameter!");
+        }
+        try {
+            Object statistic =
+                    ReflectionUtil.getMethod(obcStatistic, "getNMSStatistic").invoke(null, which);
+            achievementTooltip((String) ReflectionUtil.getField(nmsStatistic, "name").get(statistic));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Displays a statistic that requires a {@link Material} parameter on hover event.
+     *
+     * @param statistic statistic to display
+     * @param material  material to pass to the {@code statistic}
+     */
+    public void statisticTooltip(final Statistic statistic, Material material) {
+        Statistic.Type type = statistic.getType();
+        if (type == Statistic.Type.UNTYPED) {
+            throw new IllegalArgumentException("That statistic needs no additional parameter!");
+        }
+        if ((type == Statistic.Type.BLOCK && material.isBlock()) || type == Statistic.Type.ENTITY) {
+            throw new IllegalArgumentException("Wrong parameter type for that statistic - needs " + type + "!");
+        }
+        try {
+            Object obcStatistic = ReflectionUtil.getMethod(MessagePart.obcStatistic, "getMaterialStatistic")
+                    .invoke(null, statistic, material);
+            achievementTooltip(
+                    (String) ReflectionUtil.getField(nmsStatistic, "name").get(obcStatistic));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Displays a statistic that requires a {@link EntityType} parameter on hover event.
+     *
+     * @param statistic statistic to display
+     * @param entity    entity to pass to the {@code statistic}
+     */
+    public void statisticTooltip(final Statistic statistic, EntityType entity) {
+        Statistic.Type type = statistic.getType();
+        if (type == Statistic.Type.UNTYPED) {
+            throw new IllegalArgumentException("That statistic needs no additional parameter!");
+        }
+        if (type != Statistic.Type.ENTITY) {
+            throw new IllegalArgumentException("Wrong parameter type for that statistic - needs " + type + "!");
+        }
+        try {
+            Object obcStatistic = ReflectionUtil.getMethod(MessagePart.obcStatistic, "getEntityStatistic")
+                    .invoke(null, statistic, entity);
+            achievementTooltip(
+                    (String) ReflectionUtil.getField(nmsStatistic, "name").get(obcStatistic));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Displays an Item written in json on hover event.
+     *
+     * @param itemJSON item's json to display
+     * @return this instance of FancyMessage, for chaining.
+     */
+    public void itemTooltip(final String itemJSON) {
+        onHover("show_item", itemJSON);
+    }
+
+    /**
+     * Displays an {@link ItemStack} on hover event.
+     *
+     * @param itemStack
+     * @return this instance of FancyMessage, for chaining.
+     */
+    public void itemTooltip(final ItemStack itemStack) {
+        try {
+            Object nmsItem =
+                    ReflectionUtil.getMethod(obcItemStack, "asNMSCopy", ItemStack.class)
+                            .invoke(null, itemStack);
+            itemTooltip(
+                    ReflectionUtil.getMethod(nmsItemStack, "save")
+                            .invoke(nmsItem, nmsTagCompound.newInstance())
+                            .toString()
+            );
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Displays a tooltip on hover event.
+     *
+     * @param text text to display
+     */
+    public void tooltip(final String text) {
+        tooltip(text.split("\\n"));
+    }
+
+    /**
+     * Displays a list of lines on hover event.
+     *
+     * @param lines lines to display
+     */
+    public void tooltip(final List<String> lines) {
+        tooltip((String[]) lines.toArray());
+    }
+
+    /**
+     * Displays a list of lines on hover event.
+     *
+     * @param lines array of String to set
+     */
+    public void tooltip(final String... lines) {
+        if (lines.length == 1) {
+            onHover("show_text", lines[0]);
+        } else {
+            itemTooltip(makeMultilineTooltip(lines));
+        }
+    }
+
+    /**
+     * Creates a click event.
+     *
+     * @param name name of the event
+     * @param data data to pass to the event
+     */
+    public void onClick(final String name, final String data) {
+        Validate.notNull(name, "click event name can not be null.");
+        Validate.notNull(data, "click event data can not be null.");
+        clickEvent = name;
+        clickEventData = data;
+    }
+
+    /**
+     * Creates a hover event.
+     *
+     * @param name name of the event
+     * @param data data to pass to the event
+     */
+    public void onHover(final String name, final String data) {
+        Validate.notNull(name, "hover event name can not be null.");
+        Validate.notNull(data, "hover event data can not be null.");
+        hoverEvent = name;
+        hoverEventData = data;
+    }
+
+    protected String makeMultilineTooltip(final String[] lines) {
+        StringWriter string = new StringWriter();
+        JsonWriter json = new JsonWriter(string);
+        try {
+            json.beginObject().name("id").value(1);
+            json.name("tag").beginObject().name("display").beginObject();
+            json.name("Name").value("\\u00A7f" + lines[0].replace("\"", "\\\""));
+            json.name("Lore").beginArray();
+            for (int i = 1; i < lines.length; i++) {
+                final String line = lines[i];
+                json.value(line.isEmpty() ? " " : line.replace("\"", "\\\""));
+            }
+            json.endArray().endObject().endObject().endObject();
+            json.close();
+        } catch (Exception e) {
+            throw new RuntimeException("invalid tooltip", e);
+        }
+        return string.toString();
     }
 
     JsonWriter writeJson(JsonWriter json) {
         try {
             json.beginObject().name("text").value(text);
-            json.name("color").value(color.name().toLowerCase());
+            if (color != null) json.name("color").value(color.name().toLowerCase());
             for (final ChatColor style : styles) {
                 String styleName;
                 switch (style) {
@@ -61,18 +359,18 @@ final class MessagePart implements Cloneable {
                 }
                 json.name(styleName).value(true);
             }
-            if (clickActionName != null && clickActionData != null) {
+            if (clickEvent != null && clickEventData != null) {
                 json.name("clickEvent")
                         .beginObject()
-                        .name("action").value(clickActionName)
-                        .name("value").value(clickActionData)
+                        .name("action").value(clickEvent)
+                        .name("value").value(clickEventData)
                         .endObject();
             }
-            if (hoverActionName != null && hoverActionData != null) {
+            if (hoverEvent != null && hoverEventData != null) {
                 json.name("hoverEvent")
                         .beginObject()
-                        .name("action").value(hoverActionName)
-                        .name("value").value(hoverActionData)
+                        .name("action").value(hoverEvent)
+                        .name("value").value(hoverEventData)
                         .endObject();
             }
             return json.endObject();
@@ -82,4 +380,147 @@ final class MessagePart implements Cloneable {
         }
     }
 
+    /**
+     * Converts this {@link MessagePart} to a JSON String.
+     *
+     * @return JSON of this MessagePart
+     */
+    public String toJSONString() {
+        return writeJson(new JsonWriter(new StringWriter())).toString();
+    }
+
+    /**
+     * Checks whether this {@link MessagePart} has text.
+     *
+     * @return whether this MessagePart has text
+     */
+    public boolean hasText() {
+        return !text.isEmpty();
+    }
+
+    /**
+     * Sets this {@link MessagePart}'s text.
+     *
+     * @return this MessagePart's text
+     */
+    public String getText() {
+        return text;
+    }
+
+    /**
+     * Gets this {@link MessagePart}'s text.
+     *
+     * @param text text to set
+     */
+    public void setText(String text) {
+        this.text = text;
+    }
+
+    /**
+     * Gets this {@link MessagePart}'s hover event name.
+     *
+     * @return hover event name, nullable
+     */
+    public String getHoverEvent() {
+        return hoverEvent;
+    }
+
+    /**
+     * Sets this {@link MessagePart}'s hover event name.
+     *
+     * @param hoverEvent name of the hover event to set
+     */
+    public void setHoverEvent(String hoverEvent) {
+        this.hoverEvent = hoverEvent;
+    }
+
+    /**
+     * Gets this {@link MessagePart}'s hover event data.
+     *
+     * @return hover event data, nullable
+     */
+    public String getHoverEventData() {
+        return hoverEventData;
+    }
+
+    /**
+     * Sets this {@link MessagePart}'s hover event data.
+     *
+     * @param hoverEventData hover event data to set
+     */
+    public void setHoverEventData(String hoverEventData) {
+        this.hoverEventData = hoverEventData;
+    }
+
+    /**
+     * Gets this {@link MessagePart}'s click event name.
+     *
+     * @return click event name, nullable
+     */
+    public String getClickEvent() {
+        return clickEvent;
+    }
+
+    /**
+     * Sets this {@link MessagePart}'s click event name.
+     *
+     * @param clickEvent click event name to set
+     */
+    public void setClickEvent(String clickEvent) {
+        this.clickEvent = clickEvent;
+    }
+
+    /**
+     * Gets this {@link MessagePart}'s hover event data.
+     *
+     * @return click event data, nullable
+     */
+    public String getClickEventData() {
+        return clickEventData;
+    }
+
+    /**
+     * Sets this {@link MessagePart}'s click event data.
+     *
+     * @param clickEventData click event data to set
+     */
+    public void setClickEventData(String clickEventData) {
+        this.clickEventData = clickEventData;
+    }
+
+    /**
+     * Gets this {@link MessagePart}'s chat styles.
+     *
+     * @return
+     */
+    public ArrayList<ChatColor> getStyles() {
+        return styles;
+    }
+
+    /**
+     * Sets this {@link MessagePart}'s chat styles.
+     *
+     * @param styles
+     */
+    public void setStyles(ArrayList<ChatColor> styles) {
+        this.styles = styles;
+    }
+
+    /**
+     * Gets this {@link MessagePart}'s chat color.
+     *
+     * @return
+     */
+    public ChatColor getColor() {
+        return color;
+    }
+
+    /**
+     * Sets this {@link MessagePart}'s chat color.
+     *
+     * @param color
+     */
+    public void setColor(ChatColor color) {
+        this.color = color;
+    }
 }
