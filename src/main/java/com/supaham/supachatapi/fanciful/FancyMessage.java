@@ -25,7 +25,7 @@ public class FancyMessage {
     private final List<MessagePart> messageParts;
     private String jsonString;
     private boolean dirty;
-    
+
     protected static Class<?> nmsChatSerializer = ReflectionUtil.getNMSClass("ChatSerializer");
     protected static Class<?> nmsPacketPlayOutChat = ReflectionUtil.getNMSClass("PacketPlayOutChat");
 
@@ -33,7 +33,7 @@ public class FancyMessage {
         messageParts = new ArrayList<MessagePart>();
         messageParts.add(new MessagePart(firstPartText));
         jsonString = null;
-        dirty = false;
+        dirty = true; // true to speed up append(MessagePart)
     }
 
     public FancyMessage() {
@@ -75,6 +75,21 @@ public class FancyMessage {
         }
         latest.text = text;
         dirty = true;
+        return this;
+    }
+
+    public FancyMessage append(MessagePart part) {
+        if (this.messageParts.size() > 1) {
+            this.messageParts.add(part);
+        } else if (!dirty) { // This means that FancyMessage was constructed (without String) but not modified
+            this.messageParts.remove(0);
+            this.messageParts.add(part);
+        }
+        return this;
+    }
+
+    public FancyMessage append(FancyMessage fancyMessage) {
+        this.messageParts.addAll(fancyMessage.messageParts);
         return this;
     }
 
