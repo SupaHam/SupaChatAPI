@@ -13,7 +13,7 @@
     <properties>
         <java.version>1.6</java.version>
         <main.class>com.supaham.supachatapi.SupaChatAPI</main.class>
-        <bukkit.version>1.7.9-R0.1-SNAPSHOT</bukkit.version>
+        <bukkit.version>1.7.10-R0.1-SNAPSHOT</bukkit.version>
     </properties>
 
     <dependencies>
