@@ -77,7 +77,7 @@ public class MessagePart implements Cloneable {
      * @throws IllegalArgumentException thrown if {@code color} is not a color
      */
     public ChatColor color(final ChatColor color) throws IllegalArgumentException {
-        if (!color.isColor()) {
+        if (!color.equals(ChatColor.RESET) && !color.isColor()) {
             throw new IllegalArgumentException(color.name() + " is not a color");
         }
 
@@ -94,13 +94,23 @@ public class MessagePart implements Cloneable {
      * @throws IllegalArgumentException thrown if {@code styles} contains a color
      */
     public List<ChatColor> style(ChatColor... styles) throws IllegalArgumentException {
+        boolean reset = false;
         for (final ChatColor style : styles) {
+            if(style.equals(ChatColor.RESET)) {
+                reset = true;
+                break;
+            }
             if (!style.isFormat()) {
                 throw new IllegalArgumentException(style.name() + " is not a style");
             }
         }
         List<ChatColor> prev = new ArrayList<ChatColor>(this.styles);
-        this.styles.addAll(Arrays.asList(styles));
+
+        if (reset) {
+            this.styles.add(ChatColor.RESET);
+        } else {
+            this.styles.addAll(Arrays.asList(styles));
+        }
         return prev;
     }
 
