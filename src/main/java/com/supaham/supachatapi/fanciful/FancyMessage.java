@@ -80,12 +80,8 @@ public class FancyMessage {
     }
 
     public FancyMessage append(MessagePart part) {
-        if (this.messageParts.size() > 1) {
-            this.messageParts.add(part);
-        } else if (!dirty) { // This means that FancyMessage was constructed (without String) but not modified
-            this.messageParts.remove(0);
-            this.messageParts.add(part);
-        }
+        this.messageParts.add(part);
+        dirty = true;
         return this;
     }
 
