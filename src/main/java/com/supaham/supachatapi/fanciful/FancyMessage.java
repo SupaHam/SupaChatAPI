@@ -378,7 +378,6 @@ public class FancyMessage {
         }
         jsonString = string.toString();
         dirty = false;
-        System.out.println(jsonString);
         return jsonString;
     }
 
