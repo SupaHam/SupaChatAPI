@@ -1,6 +1,7 @@
 package com.supaham.supachatapi.fanciful;
 
 import com.supaham.supachatapi.util.ReflectionUtil;
+import org.apache.commons.lang.Validate;
 import org.bukkit.Achievement;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -90,6 +91,13 @@ public class FancyMessage {
 
     public FancyMessage append(FancyMessage fancyMessage) {
         this.messageParts.addAll(fancyMessage.messageParts);
+        return this;
+    }
+
+    public FancyMessage add(int index, MessagePart part) throws IllegalArgumentException {
+        Validate.isTrue(index < messageParts.size());
+        this.messageParts.add(index, part);
+        dirty = true;
         return this;
     }
 
