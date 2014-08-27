@@ -299,7 +299,7 @@ public class FancyMessage {
      */
     public FancyMessage then(final Object obj) throws IllegalStateException {
         if (!latest().hasText()) {
-            throw new IllegalStateException("previous message part has no text");
+            return this;
         }
         messageParts.add(new MessagePart(obj.toString()));
         dirty = true;
@@ -313,7 +313,7 @@ public class FancyMessage {
      */
     public FancyMessage then() {
         if (!latest().hasText()) {
-            throw new IllegalStateException("previous message part has no text");
+            return this;
         }
         messageParts.add(new MessagePart());
         dirty = true;
