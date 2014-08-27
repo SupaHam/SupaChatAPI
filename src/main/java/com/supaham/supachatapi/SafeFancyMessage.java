@@ -1,10 +1,10 @@
 package com.supaham.supachatapi;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import com.supaham.supachatapi.fanciful.FancyMessage;
 import org.bukkit.ChatColor;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
 * Represents a class that transforms a {@link String} into a {@link FancyMessage}. Useful for fixing multicolor lines.
@@ -57,7 +57,7 @@ public class SafeFancyMessage {
                                 throw new UnsupportedOperationException("Unexpected ChatColor format " + color);
                         }
                     } else {
-                        fancyMessage.color(color);
+                        fancyMessage.then().color(color);
                     }
                     break;
                 case 2: // New line
