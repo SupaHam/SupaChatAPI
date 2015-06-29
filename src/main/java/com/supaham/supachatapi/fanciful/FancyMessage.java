@@ -1,6 +1,10 @@
 package com.supaham.supachatapi.fanciful;
 
 import com.supaham.supachatapi.util.ReflectionUtil;
+import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Achievement;
 import org.bukkit.ChatColor;
@@ -10,10 +14,6 @@ import org.bukkit.craftbukkit.libs.com.google.gson.stream.JsonWriter;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-
-import java.io.StringWriter;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Represents a Minecraft chat message that can be fancified with hover & click events, colors, styles and more. <p/>
@@ -413,6 +413,18 @@ public class FancyMessage {
         for (final Player player : players) {
             send(player);
         }
+    }
+
+    public List<MessagePart> getMessageParts() {
+        return Collections.unmodifiableList(messageParts);
+    }
+
+    public MessagePart removePart(int index) {
+        MessagePart removed = this.messageParts.remove(index);
+        if (removed != null) {
+            this.dirty = true;
+        }
+        return removed;
     }
 
     private MessagePart latest() {
